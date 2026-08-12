@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>elastic_tracker_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and configuration files for the ROS 2 Elastic-Tracker baseline.</description>
+  <maintainer email="mark@example.com">mark</maintainer>
+  <license>GPL-3.0-only</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>elastic_tracker_nodes</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -36,6 +36,7 @@ struct PredictConfig {
   double dt = 0.2;
   double acceleration_weight = 1.0;
   double max_velocity = 4.0;
+  double max_acceleration = 3.0;
 };
 
 struct Predict {
@@ -46,7 +47,7 @@ struct Predict {
   double dt;
   double pre_dur;
   double rho_a;
-  double car_z, vmax;
+  double car_z, vmax, max_acceleration;
   mapping::OccGridMap map;
 #ifdef ELASTIC_TRACKER_ROS2
   std::deque<Node> data;
@@ -65,13 +66,15 @@ struct Predict {
       : dt(config.dt),
         pre_dur(config.duration),
         rho_a(config.acceleration_weight),
-        vmax(config.max_velocity) {}
+        vmax(config.max_velocity),
+        max_acceleration(config.max_acceleration) {}
 #else
   inline Predict(ros::NodeHandle& nh) {
     nh.getParam("tracking_dur", pre_dur);
     nh.getParam("tracking_dt", dt);
     nh.getParam("prediction/rho_a", rho_a);
     nh.getParam("prediction/vmax", vmax);
+    nh.param("prediction/amax", max_acceleration, 3.0);
     for (int i = 0; i < MAX_MEMORY; ++i) {
       data[i] = new Node;
     }
@@ -97,6 +100,7 @@ struct Predict {
     std::priority_queue<NodePtr, std::vector<NodePtr>, NodeComparator> open_set;
 
     Eigen::Vector3d input(0, 0, 0);
+    const double acceleration_step = std::max(max_acceleration, 1.0e-3);
 
     stack_top = 0;
 #ifdef ELASTIC_TRACKER_ROS2
@@ -116,8 +120,10 @@ struct Predict {
     curPtr->t = 0;
     double dt2_2 = dt * dt / 2;
     while (curPtr->t < pre_dur) {
-      for (input.x() = -3; input.x() <= 3; input.x() += 3)
-        for (input.y() = -3; input.y() <= 3; input.y() += 3) {
+      for (input.x() = -acceleration_step; input.x() <= acceleration_step;
+           input.x() += acceleration_step)
+        for (input.y() = -acceleration_step; input.y() <= acceleration_step;
+             input.y() += acceleration_step) {
           Eigen::Vector3d p = curPtr->p + curPtr->v * dt + input * dt2_2;
           Eigen::Vector3d v = curPtr->v + input * dt;
           if (!isValid(p, v)) {

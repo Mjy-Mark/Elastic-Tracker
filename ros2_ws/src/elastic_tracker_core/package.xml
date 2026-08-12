@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>elastic_tracker_core</name>
+  <version>0.1.0</version>
+  <description>ROS-independent trajectory optimization core from Elastic-Tracker.</description>
+  <maintainer email="mark@example.com">mark</maintainer>
+  <license>GPL-3.0-only</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>eigen3_cmake_module</depend>
+  <depend>eigen</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
