@@ -29,17 +29,19 @@ elastic_tracker_planner:
     plan_hz: 20
     tracking_duration: 3.0
     tracking_dt: 0.2
-    tracking_distance: 2.5
-    tracking_tolerance: 0.3
+    # Horizontal stand-off: sqrt(1.5^2 - 1.0^2), so the 3-D distance is 1.5 m.
+    tracking_distance: 1.11803398875
+    # Match the RL baseline's 0.5 m distance-tolerance scale. Note that this is
+    # a hard zero-penalty band here, while RL uses 0.5 m as a Gaussian sigma.
+    tracking_tolerance: 0.5
     target_height_offset: 1.0
     prediction_acceleration_weight: 1.0
     # figure-8 trajectory: target horizontal speed max/P99 = 4.538/4.292 m/s.
     # Do not reuse the UAV bounds here: the target predictor must first accept
     # the measured target velocity before the optimizer can plan a response.
     target_prediction_max_velocity: 5.0
-    # P99 target horizontal acceleration is 5.81 m/s^2.  The isolated 39.15
-    # m/s^2 reversal remains a stress event rather than a nominal bound.
-    target_prediction_max_acceleration: 6.0
+    # ROS 2 baseline target-prediction hypotheses per horizontal axis.
+    target_prediction_acceleration_step: 6.0
     # The UAV needs a modest margin over the 4.538 m/s target to preserve the
     # requested standoff while traversing the two high-curvature lobes.
     trajectory_max_velocity: 5.5

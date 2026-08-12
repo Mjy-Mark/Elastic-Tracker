@@ -355,7 +355,11 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
     cfgHs_.push_back(cfgHs_[0]);
   }
   if (!extractVs(cfgHs_, cfgVs_)) {
+#ifdef ELASTIC_TRACKER_ROS2
     std::cerr << "[traj_opt] extractVs failed" << std::endl;
+#else
+    ROS_ERROR("extractVs fail!");
+#endif
     return false;
   }
   N_ = 2 * cfgHs_.size();
@@ -383,8 +387,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   x_[dim_p_ + dim_t_] = 0.1;
   int opt_ret = optimize();
   if (opt_ret < 0) {
-    delete[] x_;
-    x_ = nullptr;
     return false;
   }
   double sumT = sum_T_ + x_[dim_p_ + dim_t_] * x_[dim_p_ + dim_t_];
@@ -395,7 +397,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   // std::cout << "T: " << T.transpose() << std::endl;
   traj = jerkOpt_.getTraj();
   delete[] x_;
-  x_ = nullptr;
   return true;
 }
 
@@ -411,7 +412,11 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
     cfgHs_.push_back(cfgHs_[0]);
   }
   if (!extractVs(cfgHs_, cfgVs_)) {
+#ifdef ELASTIC_TRACKER_ROS2
     std::cerr << "[traj_opt] extractVs failed" << std::endl;
+#else
+    ROS_ERROR("extractVs fail!");
+#endif
     return false;
   }
   N_ = 2 * cfgHs_.size();
@@ -437,8 +442,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   x_[dim_p_ + dim_t_] = 0.1;
   int opt_ret = optimize();
   if (opt_ret < 0) {
-    delete[] x_;
-    x_ = nullptr;
     return false;
   }
   double sumT = sum_T_ + x_[dim_p_ + dim_t_] * x_[dim_p_ + dim_t_];
@@ -449,7 +452,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   // std::cout << "T: " << T.transpose() << std::endl;
   traj = jerkOpt_.getTraj();
   delete[] x_;
-  x_ = nullptr;
   return true;
 }
 
@@ -657,7 +659,7 @@ bool TrajOpt::grad_cost_p_tracking(const Eigen::Vector3d& p,
   double dr2 = dp.head(2).squaredNorm();
   double dz2 = dp.z() * dp.z();
 
-  bool ret = false;
+  bool ret;
   gradp.setZero();
   costp = 0;
 
@@ -698,7 +700,7 @@ bool TrajOpt::grad_cost_p_landing(const Eigen::Vector3d& p,
   double dr2 = dp.head(2).squaredNorm();
   double dz2 = dp.z() * dp.z();
 
-  bool ret = false;
+  bool ret;
   gradp.setZero();
   costp = 0;
 

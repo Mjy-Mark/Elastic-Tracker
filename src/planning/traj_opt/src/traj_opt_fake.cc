@@ -198,7 +198,11 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
     cfgHs_.push_back(cfgHs_[0]);
   }
   if (!extractVs(cfgHs_, cfgVs_)) {
+#ifdef ELASTIC_TRACKER_ROS2
     std::cerr << "[traj_opt] extractVs failed" << std::endl;
+#else
+    ROS_ERROR("extractVs fail!");
+#endif
     return false;
   }
   N_ = 2 * cfgHs_.size();
@@ -258,8 +262,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   t_ = t;
   p_ = p;
   if (opt_ret < 0) {
-    delete[] x_;
-    x_ = nullptr;
     return false;
   }
   forwardT(t_, T);
@@ -267,7 +269,6 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   jerkOpt_.generate(P, T);
   traj = jerkOpt_.getTraj();
   delete[] x_;
-  x_ = nullptr;
   return true;
 }
 

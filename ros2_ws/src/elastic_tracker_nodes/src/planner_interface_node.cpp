@@ -44,9 +44,9 @@ class PlannerInterfaceNode : public rclcpp::Node {
     config.target_prediction_max_velocity = declare_parameter(
         "target_prediction_max_velocity",
         config.target_prediction_max_velocity);
-    config.target_prediction_max_acceleration = declare_parameter(
-        "target_prediction_max_acceleration",
-        config.target_prediction_max_acceleration);
+    config.target_prediction_acceleration_step = declare_parameter(
+        "target_prediction_acceleration_step",
+        config.target_prediction_acceleration_step);
     config.trajectory_max_velocity = declare_parameter(
         "trajectory_max_velocity", config.trajectory_max_velocity);
     config.trajectory_max_acceleration = declare_parameter(

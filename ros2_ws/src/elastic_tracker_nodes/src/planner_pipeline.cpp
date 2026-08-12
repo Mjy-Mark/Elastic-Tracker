@@ -23,7 +23,7 @@ prediction::PredictConfig makePredictConfig(const PlannerConfig& config) {
   predict_config.dt = config.tracking_dt;
   predict_config.acceleration_weight = config.prediction_acceleration_weight;
   predict_config.max_velocity = config.target_prediction_max_velocity;
-  predict_config.max_acceleration = config.target_prediction_max_acceleration;
+  predict_config.acceleration_step = config.target_prediction_acceleration_step;
   return predict_config;
 }
 

@@ -19,9 +19,7 @@ class TargetTrajectoryReplay(Node):
 
     REQUIRED_KEYS = (
         "time_s",
-        "root_quaternion_wxyz",
         "root_linear_velocity_world_mps",
-        "root_angular_velocity_world_radps",
         "task_position_local_m",
     )
 
@@ -62,14 +60,8 @@ class TargetTrajectoryReplay(Node):
             self._position = np.asarray(
                 data["task_position_local_m"], dtype=np.float64
             )
-            self._quaternion_wxyz = np.asarray(
-                data["root_quaternion_wxyz"], dtype=np.float64
-            )
             self._linear_velocity = np.asarray(
                 data["root_linear_velocity_world_mps"], dtype=np.float64
-            )
-            self._angular_velocity = np.asarray(
-                data["root_angular_velocity_world_radps"], dtype=np.float64
             )
         self._validate(trajectory_file)
 
@@ -100,12 +92,10 @@ class TargetTrajectoryReplay(Node):
     def _validate(self, trajectory_file: Path) -> None:
         arrays = (
             self._position,
-            self._quaternion_wxyz,
             self._linear_velocity,
-            self._angular_velocity,
         )
         count = self._time_s.size
-        expected_shapes = ((count, 3), (count, 4), (count, 3), (count, 3))
+        expected_shapes = ((count, 3), (count, 3))
         if count < 2 or self._time_s.ndim != 1:
             raise ValueError(f"time_s must be a one-dimensional sequence: {trajectory_file}")
         if any(array.shape != shape for array, shape in zip(arrays, expected_shapes)):
@@ -116,31 +106,11 @@ class TargetTrajectoryReplay(Node):
             raise ValueError(f"trajectory contains NaN or Inf: {trajectory_file}")
         if np.any(np.diff(self._time_s) <= 0.0):
             raise ValueError(f"time_s must be strictly increasing: {trajectory_file}")
-        norm = np.linalg.norm(self._quaternion_wxyz, axis=1)
-        if np.any(norm < 1.0e-6):
-            raise ValueError(f"trajectory contains a zero quaternion: {trajectory_file}")
-        self._quaternion_wxyz /= norm[:, None]
 
     def _on_heartbeat(self, _: Empty) -> None:
         self._planner_ready = True
 
-    @staticmethod
-    def _slerp(q0: np.ndarray, q1: np.ndarray, alpha: float) -> np.ndarray:
-        dot = float(np.clip(np.dot(q0, q1), -1.0, 1.0))
-        if dot < 0.0:
-            q1 = -q1
-            dot = -dot
-        if dot > 0.9995:
-            result = q0 + alpha * (q1 - q0)
-            return result / np.linalg.norm(result)
-        theta = float(np.arccos(dot))
-        sin_theta = float(np.sin(theta))
-        return (
-            np.sin((1.0 - alpha) * theta) / sin_theta * q0
-            + np.sin(alpha * theta) / sin_theta * q1
-        )
-
-    def _sample(self, elapsed_s: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _sample(self, elapsed_s: float) -> tuple[np.ndarray, np.ndarray]:
         sample_time = np.clip(
             self._time_s[0] + elapsed_s * self._playback_rate,
             self._time_s[0],
@@ -158,13 +128,7 @@ class TargetTrajectoryReplay(Node):
             (1.0 - alpha) * self._linear_velocity[lower]
             + alpha * self._linear_velocity[upper]
         )
-        angular_velocity = (
-            (1.0 - alpha) * self._angular_velocity[lower]
-            + alpha * self._angular_velocity[upper]
-        )
-        return position + self._offset, velocity, angular_velocity, self._slerp(
-            self._quaternion_wxyz[lower], self._quaternion_wxyz[upper], alpha
-        )
+        return position + self._offset, velocity
 
     def _publish_trigger(self, stamp) -> None:
         trigger = PoseStamped()
@@ -179,7 +143,7 @@ class TargetTrajectoryReplay(Node):
         if self._start_time_ns is None:
             self._start_time_ns = now.nanoseconds
         elapsed_s = max(0.0, (now.nanoseconds - self._start_time_ns) * 1.0e-9)
-        position, velocity, angular_velocity, quaternion = self._sample(elapsed_s)
+        position, velocity = self._sample(elapsed_s)
 
         message = Odometry()
         message.header.stamp = now.to_msg()
@@ -188,16 +152,12 @@ class TargetTrajectoryReplay(Node):
         message.pose.pose.position.x = float(position[0])
         message.pose.pose.position.y = float(position[1])
         message.pose.pose.position.z = float(position[2])
-        message.pose.pose.orientation.w = float(quaternion[0])
-        message.pose.pose.orientation.x = float(quaternion[1])
-        message.pose.pose.orientation.y = float(quaternion[2])
-        message.pose.pose.orientation.z = float(quaternion[3])
+        # Elastic-Tracker reads only target position and linear velocity. Use a
+        # valid identity quaternion rather than coupling replay to a car body.
+        message.pose.pose.orientation.w = 1.0
         message.twist.twist.linear.x = float(velocity[0])
         message.twist.twist.linear.y = float(velocity[1])
         message.twist.twist.linear.z = float(velocity[2])
-        message.twist.twist.angular.x = float(angular_velocity[0])
-        message.twist.twist.angular.y = float(angular_velocity[1])
-        message.twist.twist.angular.z = float(angular_velocity[2])
         self._odometry_pub.publish(message)
 
         if (

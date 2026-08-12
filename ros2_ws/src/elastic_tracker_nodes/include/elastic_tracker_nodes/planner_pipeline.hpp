@@ -16,14 +16,14 @@ namespace elastic_tracker_nodes {
 struct PlannerConfig {
   double tracking_duration = 3.0;
   double tracking_dt = 0.2;
-  double tracking_distance = 2.5;
-  double tracking_tolerance = 0.3;
+  double tracking_distance = 1.11803398875;
+  double tracking_tolerance = 0.5;
   double target_height_offset = 1.0;
   double prediction_acceleration_weight = 1.0;
   // These limits describe two different vehicles.  Keeping them separate is
   // essential when the tracked vehicle is faster than the nominal UAV limit.
   double target_prediction_max_velocity = 4.0;
-  double target_prediction_max_acceleration = 3.0;
+  double target_prediction_acceleration_step = 6.0;
   double trajectory_max_velocity = 3.0;
   double trajectory_max_acceleration = 6.0;
   double corridor_width = 2.0;

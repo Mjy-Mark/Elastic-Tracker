@@ -385,7 +385,7 @@ class Env {
     Eigen::Vector3d interior;
     std::vector<int> inflate(hPolys.size(), 0);
     for (int i = 0; i < (int)hPolys.size(); i++) {
-      if (geoutils::findInteriorDist(hPolys[i], interior) < 0.1) {
+      if (geoutils::findInteriorDist(current_poly, interior) < 0.1) {
         inflate[i] = 1;
       } else {
         compressPoly(hPolys[i], 0.1);
@@ -469,10 +469,6 @@ class Env {
     auto calulateHeuristic = [&](const NodePtr& ptr) {
       Eigen::Vector3i dp = end_idx - ptr->idx;
       double dr = dp.head(2).norm();
-      if (dr < std::numeric_limits<double>::epsilon()) {
-        ptr->h = stop_dist + std::abs(dp.z());
-        return;
-      }
       double lambda = 1 - stop_dist / dr;
       double dx = lambda * dp.x();
       double dy = lambda * dp.y();
@@ -550,7 +546,6 @@ class Env {
         ret = true;
         break;
       }
-      t_cost = searchElapsed();
       if (visited_nodes_.size() == MAX_MEMORY) {
         std::cout << "[env] out of memory!" << std::endl;
       }

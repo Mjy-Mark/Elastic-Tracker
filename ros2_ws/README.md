@@ -101,18 +101,18 @@ shared 3.0 m/s limit was therefore infeasible.
 | Parameter | Value | Reason |
 | --- | ---: | --- |
 | `target_prediction_max_velocity` | 5.0 m/s | exceeds the measured 4.538 m/s peak |
-| `target_prediction_max_acceleration` | 6.0 m/s² | covers the 5.81 m/s² P99 normal acceleration |
+| `target_prediction_acceleration_step` | 6.0 m/s² | per-axis hypotheses are `{-6, 0, 6}` |
 | `trajectory_max_velocity` | 5.5 m/s | gives the UAV speed margin over the target |
 | `trajectory_max_acceleration` | 8.0 m/s² | gives the optimizer curvature/catch-up margin |
 
-The data also contains one short 39.15 m/s² reversal near 39.30 s.  It is
-preserved exactly in playback but is deliberately not treated as a normal
-vehicle bound; report this segment separately as a stress case.
+For this ROS 2 baseline, each horizontal target-acceleration component is
+selected from `{-6, 0, 6} m/s²`. The ROS 1 path keeps the upstream
+`{-3, 0, 3} m/s²` behavior.
 
-`tracking_distance` (currently 2.5 m) and `target_height_offset` (currently
-1.0 m) are **evaluation-geometry choices**, not properties inferred from the
-trajectory.  Keep them for an upstream-native baseline, or set them only after
-declaring the same standoff/altitude protocol for the RL comparator.  If the
-Isaac Lab evaluator uses the upstream 2.5 m standoff, its
-`trajectory_eval_bound_y_m` must be at least 6.0 m because the target reaches
-|y| = 3.291 m; the existing x bound of 10.0 m is sufficient.
+`tracking_distance` is the horizontal stand-off and is set to
+`sqrt(1.5² - 1.0²) = 1.11803398875 m`. Together with the 1.0 m target-height
+offset, this gives the RL task's 1.5 m desired three-dimensional distance.
+`tracking_tolerance` is set to 0.5 m to use the same numerical tolerance scale
+as the RL reward. The objectives are not equivalent: Elastic-Tracker applies a
+zero-penalty band separately to horizontal distance and height, whereas the RL
+reward uses 0.5 m as the Gaussian sigma of the three-dimensional range error.

@@ -48,7 +48,7 @@ class TrajOpt {
   Eigen::VectorXd p_;
   // duration of each piece of the trajectory
   Eigen::VectorXd t_;
-  double* x_ = nullptr;
+  double* x_;
   double sum_T_;
 
   std::vector<Eigen::Vector3d> tracking_ps_;

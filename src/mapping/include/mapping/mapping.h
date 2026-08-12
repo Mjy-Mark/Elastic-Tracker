@@ -61,14 +61,9 @@ struct RingBuffer {
 struct OccGridMap {
  public:
   // parameters
-  int p_min = -199;
-  int p_max = 220;
-  int p_hit = 62;
-  int p_mis = 62;
-  int p_occ = 139;
-  int p_def = -199;
-  int inflate_size = 0;
-  double sensor_range = 10.0;
+  int p_min, p_max, p_hit, p_mis, p_occ, p_def;
+  int inflate_size;
+  double sensor_range;
   // states
   bool init_finished = false;
   int offset_x, offset_y, offset_z;
@@ -244,8 +239,6 @@ struct OccGridMap {
     bool occ_now = pro.at(ad) > p_occ;
     if (occ_pre && !occ_now) {
       occ2free(idx);
-    } else if (!occ_now) {
-      infocc.at(ad) = occ.at(ad) > 0 ? 1 : -1;
     }
     vis.at(ad) = -1;  // set raycasted
   }
