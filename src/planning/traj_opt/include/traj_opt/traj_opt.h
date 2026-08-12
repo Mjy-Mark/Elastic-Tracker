@@ -1,13 +1,35 @@
 #pragma once
+#ifndef ELASTIC_TRACKER_ROS2
 #include <ros/ros.h>
+#endif
 
 #include "minco.hpp"
 
 namespace traj_opt {
 
+struct TrajOptConfig {
+  int quadrature_resolution = 8;
+  double max_velocity = 3.0;
+  double max_acceleration = 6.0;
+  double time_weight = 100.0;
+  double corridor_weight = 10000.0;
+  double velocity_weight = 1000.0;
+  double acceleration_weight = 1000.0;
+  double tracking_weight = 1000.0;
+  double visibility_weight = 10000.0;
+  double visibility_clearance = 0.8;
+  double tracking_duration = 3.0;
+  double tracking_distance = 2.5;
+  double tracking_dt = 0.2;
+  double corridor_clearance = 0.2;
+  double tracking_tolerance = 0.3;
+};
+
 class TrajOpt {
  public:
+#ifndef ELASTIC_TRACKER_ROS2
   ros::NodeHandle nh_;
+#endif
   // # pieces and # key points
   int N_, K_, dim_t_, dim_p_;
   // weight for time regularization term
@@ -26,7 +48,7 @@ class TrajOpt {
   Eigen::VectorXd p_;
   // duration of each piece of the trajectory
   Eigen::VectorXd t_;
-  double* x_;
+  double* x_ = nullptr;
   double sum_T_;
 
   std::vector<Eigen::Vector3d> tracking_ps_;
@@ -41,7 +63,10 @@ class TrajOpt {
                  std::vector<Eigen::MatrixXd>& vPs) const;
 
  public:
-  TrajOpt(ros::NodeHandle& nh);
+  explicit TrajOpt(const TrajOptConfig& config);
+#ifndef ELASTIC_TRACKER_ROS2
+  explicit TrajOpt(ros::NodeHandle& nh);
+#endif
   ~TrajOpt() {}
 
   void setBoundConds(const Eigen::MatrixXd& iniState, const Eigen::MatrixXd& finState);

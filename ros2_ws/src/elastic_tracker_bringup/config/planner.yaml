@@ -1,0 +1,55 @@
+elastic_tracker_mapper:
+  ros__parameters:
+    use_sim_time: true
+    resolution: 0.15
+    local_x: 19.2
+    local_y: 19.2
+    local_z: 9.6
+    sensor_range: 10.0
+    sensor_offset_x: 0.08
+    sensor_offset_y: 0.0
+    sensor_offset_z: 0.0
+    inflate_size: 1
+    mask_target: true
+    target_mask_xy: 0.5
+    target_mask_z: 1.0
+
+elastic_tracker_empty_map:
+  ros__parameters:
+    use_sim_time: true
+    resolution: 0.15
+    local_x: 19.2
+    local_y: 19.2
+    local_z: 9.6
+    empty_map_rate: 2.0
+
+elastic_tracker_planner:
+  ros__parameters:
+    use_sim_time: true
+    plan_hz: 20
+    tracking_duration: 3.0
+    tracking_dt: 0.2
+    tracking_distance: 2.5
+    tracking_tolerance: 0.3
+    target_height_offset: 1.0
+    prediction_acceleration_weight: 1.0
+    max_velocity: 3.0
+    max_acceleration: 6.0
+    corridor_width: 2.0
+    corridor_clearance: 0.2
+    visibility_clearance: 0.8
+    trajectory_start_delay: 0.03
+    trajectory_handoff_tolerance: 1.0
+    trigger_resets_trajectory: true
+    quadrature_resolution: 8
+    time_weight: 100.0
+    corridor_weight: 10000.0
+    velocity_weight: 1000.0
+    acceleration_weight: 1000.0
+    tracking_weight: 1000.0
+    visibility_weight: 10000.0
+
+trajectory_sampler:
+  ros__parameters:
+    use_sim_time: true
+    command_rate: 100.0

@@ -1,5 +1,7 @@
 #include <mapping/mapping.h>
+#ifndef ELASTIC_TRACKER_ROS2
 #include <pcl_conversions/pcl_conversions.h>
+#endif
 
 #include <iostream>
 
@@ -23,7 +25,7 @@ void OccGridMap::updateMap(const Eigen::Vector3d& sensor_p,
         to_small[i] = move[i] + inflate_size;
       } else {
         from[i] = move[i] + size_xyz[i];
-        from_small[i] = move[i] + size_x - inflate_size;
+        from_small[i] = move[i] + size_xyz[i] - inflate_size;
         to[i] = size_xyz[i];
         to_small[i] = size_xyz[i] - inflate_size;
       }
@@ -114,11 +116,16 @@ void OccGridMap::updateMap(const Eigen::Vector3d& sensor_p,
     }
     Eigen::Vector3d t_max;
     for (int i = 0; i < 3; ++i) {
-      t_max(i) = step(i) > 0 ? (idx(i) + 1) - pt(i) / resolution : pt(i) / resolution - idx(i);
+      if (step(i) == 0) {
+        t_max(i) = std::numeric_limits<double>::max();
+      } else {
+        t_max(i) = step(i) > 0 ? (idx(i) + 1) - pt(i) / resolution
+                               : pt(i) / resolution - idx(i);
+        t_max(i) *= delta_t(i);
+      }
     }
-    t_max = t_max.cwiseProduct(delta_t);
     Eigen::Vector3i rayIdx = idx;
-    while ((rayIdx - sensor_idx).squaredNorm() != 1) {
+    while ((rayIdx - sensor_idx).squaredNorm() > 1) {
       // find the shortest t_max
       int s_dim = 0;
       for (int i = 1; i < 3; ++i) {
@@ -137,6 +144,7 @@ void OccGridMap::updateMap(const Eigen::Vector3d& sensor_p,
   }
 }
 
+#ifndef ELASTIC_TRACKER_ROS2
 void OccGridMap::occ2pc(sensor_msgs::PointCloud2& msg) {
   pcl::PointXYZ pt;
   pcl::PointCloud<pcl::PointXYZ> pcd;
@@ -184,6 +192,7 @@ void OccGridMap::occ2pc(sensor_msgs::PointCloud2& msg, double floor, double ceil
   pcl::toROSMsg(pcd, msg);
   msg.header.frame_id = "world";
 }
+#endif
 
 void OccGridMap::inflate_once() {
   static Eigen::Vector3i p;

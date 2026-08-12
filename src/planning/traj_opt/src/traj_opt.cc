@@ -252,7 +252,26 @@ bool TrajOpt::extractVs(const std::vector<Eigen::MatrixXd>& hPs,
   return true;
 }
 
-TrajOpt::TrajOpt(ros::NodeHandle& nh) : nh_(nh) {
+TrajOpt::TrajOpt(const TrajOptConfig& config)
+    : K_(config.quadrature_resolution),
+      rhoT_(config.time_weight),
+      vmax_(config.max_velocity),
+      amax_(config.max_acceleration),
+      rhoP_(config.corridor_weight),
+      rhoV_(config.velocity_weight),
+      rhoA_(config.acceleration_weight),
+      rhoTracking_(config.tracking_weight),
+      rhosVisibility_(config.visibility_weight),
+      clearance_d_(config.corridor_clearance),
+      tolerance_d_(config.tracking_tolerance),
+      theta_clearance_(config.visibility_clearance),
+      tracking_dur_(config.tracking_duration),
+      tracking_dist_(config.tracking_distance),
+      tracking_dt_(config.tracking_dt) {}
+
+#ifndef ELASTIC_TRACKER_ROS2
+TrajOpt::TrajOpt(ros::NodeHandle& nh) : TrajOpt(TrajOptConfig()) {
+  nh_ = nh;
   // nh.getParam("N", N_);
   nh.getParam("K", K_);
   // load dynamic paramters
@@ -271,6 +290,7 @@ TrajOpt::TrajOpt(ros::NodeHandle& nh) : nh_(nh) {
   nh.getParam("clearance_d", clearance_d_);
   nh.getParam("tolerance_d", tolerance_d_);
 }
+#endif
 
 void TrajOpt::setBoundConds(const Eigen::MatrixXd& iniState,
                             const Eigen::MatrixXd& finState) {
@@ -335,7 +355,7 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
     cfgHs_.push_back(cfgHs_[0]);
   }
   if (!extractVs(cfgHs_, cfgVs_)) {
-    ROS_ERROR("extractVs fail!");
+    std::cerr << "[traj_opt] extractVs failed" << std::endl;
     return false;
   }
   N_ = 2 * cfgHs_.size();
@@ -363,6 +383,8 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   x_[dim_p_ + dim_t_] = 0.1;
   int opt_ret = optimize();
   if (opt_ret < 0) {
+    delete[] x_;
+    x_ = nullptr;
     return false;
   }
   double sumT = sum_T_ + x_[dim_p_ + dim_t_] * x_[dim_p_ + dim_t_];
@@ -373,6 +395,7 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   // std::cout << "T: " << T.transpose() << std::endl;
   traj = jerkOpt_.getTraj();
   delete[] x_;
+  x_ = nullptr;
   return true;
 }
 
@@ -388,7 +411,7 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
     cfgHs_.push_back(cfgHs_[0]);
   }
   if (!extractVs(cfgHs_, cfgVs_)) {
-    ROS_ERROR("extractVs fail!");
+    std::cerr << "[traj_opt] extractVs failed" << std::endl;
     return false;
   }
   N_ = 2 * cfgHs_.size();
@@ -414,6 +437,8 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   x_[dim_p_ + dim_t_] = 0.1;
   int opt_ret = optimize();
   if (opt_ret < 0) {
+    delete[] x_;
+    x_ = nullptr;
     return false;
   }
   double sumT = sum_T_ + x_[dim_p_ + dim_t_] * x_[dim_p_ + dim_t_];
@@ -424,6 +449,7 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   // std::cout << "T: " << T.transpose() << std::endl;
   traj = jerkOpt_.getTraj();
   delete[] x_;
+  x_ = nullptr;
   return true;
 }
 
@@ -631,7 +657,7 @@ bool TrajOpt::grad_cost_p_tracking(const Eigen::Vector3d& p,
   double dr2 = dp.head(2).squaredNorm();
   double dz2 = dp.z() * dp.z();
 
-  bool ret;
+  bool ret = false;
   gradp.setZero();
   costp = 0;
 
@@ -672,7 +698,7 @@ bool TrajOpt::grad_cost_p_landing(const Eigen::Vector3d& p,
   double dr2 = dp.head(2).squaredNorm();
   double dz2 = dp.z() * dp.z();
 
-  bool ret;
+  bool ret = false;
   gradp.setZero();
   costp = 0;
 

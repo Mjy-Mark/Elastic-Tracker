@@ -1,16 +1,27 @@
 #pragma once
-#include <decomp_ros_utils/data_ros_utils.h>
 #include <decomp_util/ellipsoid_decomp.h>
 #include <mapping/mapping.h>
+#ifndef ELASTIC_TRACKER_ROS2
+#include <decomp_ros_utils/data_ros_utils.h>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud_conversion.h>
+#endif
 
 #include <Eigen/Core>
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <iostream>
+#include <limits>
 #include <memory>
 #include <queue>
 #include <traj_opt/geoutils.hpp>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace std {
 template <typename Scalar, int Rows, int Cols>
@@ -42,9 +53,15 @@ struct Node {
 typedef Node* NodePtr;
 class NodeComparator {
  public:
-  bool operator()(NodePtr& lhs, NodePtr& rhs) {
+  bool operator()(NodePtr& lhs, NodePtr& rhs) const {
     return lhs->g + lhs->h > rhs->g + rhs->h;
   }
+};
+
+struct EnvConfig {
+  double tracking_distance = 2.5;
+  double tracking_tolerance = 0.3;
+  double visibility_clearance = 0.8;
 };
 
 class Env {
@@ -52,8 +69,12 @@ class Env {
   static constexpr double MAX_DURATION = 0.2;
 
  private:
+#ifndef ELASTIC_TRACKER_ROS2
   ros::Publisher hPolyPub_;
   ros::Time t_start_;
+#else
+  std::chrono::steady_clock::time_point t_start_;
+#endif
 
   std::unordered_map<Eigen::Vector3i, NodePtr> visited_nodes_;
   std::shared_ptr<mapping::OccGridMap> mapPtr_;
@@ -74,7 +95,35 @@ class Env {
     }
   }
 
+  inline void resetSearchTimer() {
+#ifdef ELASTIC_TRACKER_ROS2
+    t_start_ = std::chrono::steady_clock::now();
+#else
+    t_start_ = ros::Time::now();
+#endif
+  }
+
+  inline double searchElapsed() const {
+#ifdef ELASTIC_TRACKER_ROS2
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - t_start_).count();
+#else
+    return (ros::Time::now() - t_start_).toSec();
+#endif
+  }
+
  public:
+#ifdef ELASTIC_TRACKER_ROS2
+  Env(const EnvConfig& config,
+      std::shared_ptr<mapping::OccGridMap> mapPtr)
+      : mapPtr_(std::move(mapPtr)),
+        desired_dist_(config.tracking_distance),
+        theta_clearance_(config.visibility_clearance),
+        tolerance_d_(config.tracking_tolerance) {
+    for (int i = 0; i < MAX_MEMORY; ++i) {
+      data_[i] = new Node;
+    }
+  }
+#else
   Env(ros::NodeHandle& nh,
       std::shared_ptr<mapping::OccGridMap>& mapPtr) : mapPtr_(mapPtr) {
     hPolyPub_ = nh.advertise<decomp_ros_msgs::PolyhedronArray>("polyhedra", 1);
@@ -85,6 +134,7 @@ class Env {
       data_[i] = new Node;
     }
   }
+#endif
   ~Env() {
     for (int i = 0; i < MAX_MEMORY; ++i) {
       delete data_[i];
@@ -335,7 +385,7 @@ class Env {
     Eigen::Vector3d interior;
     std::vector<int> inflate(hPolys.size(), 0);
     for (int i = 0; i < (int)hPolys.size(); i++) {
-      if (geoutils::findInteriorDist(current_poly, interior) < 0.1) {
+      if (geoutils::findInteriorDist(hPolys[i], interior) < 0.1) {
         inflate[i] = 1;
       } else {
         compressPoly(hPolys[i], 0.1);
@@ -362,6 +412,7 @@ class Env {
     }
   }
 
+#ifndef ELASTIC_TRACKER_ROS2
   inline void visCorridor(const vec_E<Polyhedron3D>& polyhedra) {
     decomp_ros_msgs::PolyhedronArray poly_msg = DecompROS::polyhedron_array_to_ros(polyhedra);
     poly_msg.header.frame_id = "world";
@@ -381,6 +432,7 @@ class Env {
     }
     visCorridor(decompPolys);
   }
+#endif
 
   bool rayValid(const Eigen::Vector3i& idx0, const Eigen::Vector3i& idx1) {
     Eigen::Vector3i d_idx = idx1 - idx0;
@@ -417,6 +469,10 @@ class Env {
     auto calulateHeuristic = [&](const NodePtr& ptr) {
       Eigen::Vector3i dp = end_idx - ptr->idx;
       double dr = dp.head(2).norm();
+      if (dr < std::numeric_limits<double>::epsilon()) {
+        ptr->h = stop_dist + std::abs(dp.z());
+        return;
+      }
       double lambda = 1 - stop_dist / dr;
       double dx = lambda * dp.x();
       double dy = lambda * dp.y();
@@ -451,7 +507,7 @@ class Env {
     calulateHeuristic(curPtr);
     curPtr->state = CLOSE;
 
-    double t_cost = (ros::Time::now() - t_start_).toSec();
+    double t_cost = searchElapsed();
     if (t_cost > MAX_DURATION) {
       std::cout << "[env] search costs more than " << MAX_DURATION << "s!" << std::endl;
     }
@@ -494,6 +550,7 @@ class Env {
         ret = true;
         break;
       }
+      t_cost = searchElapsed();
       if (visited_nodes_.size() == MAX_MEMORY) {
         std::cout << "[env] out of memory!" << std::endl;
       }
@@ -514,7 +571,7 @@ class Env {
                               const std::vector<Eigen::Vector3d>& targets,
                               std::vector<Eigen::Vector3d>& way_pts,
                               std::vector<Eigen::Vector3d>& path) {
-    t_start_ = ros::Time::now();
+    resetSearchTimer();
     Eigen::Vector3i start_idx = mapPtr_->pos2idx(start_p);
     std::vector<Eigen::Vector3i> idx_path;
     path.push_back(start_p);

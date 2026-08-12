@@ -1,10 +1,18 @@
 #pragma once
 
 #include <mapping/mapping.h>
+#ifndef ELASTIC_TRACKER_ROS2
 #include <ros/ros.h>
+#endif
 
 #include <Eigen/Core>
+
+#include <algorithm>
+#include <chrono>
+#include <deque>
+#include <iostream>
 #include <queue>
+#include <vector>
 
 namespace prediction {
 
@@ -18,10 +26,18 @@ struct Node {
 typedef Node* NodePtr;
 class NodeComparator {
  public:
-  bool operator()(NodePtr& lhs, NodePtr& rhs) {
+  bool operator()(NodePtr& lhs, NodePtr& rhs) const {
     return lhs->score + lhs->h > rhs->score + rhs->h;
   }
 };
+
+struct PredictConfig {
+  double duration = 3.0;
+  double dt = 0.2;
+  double acceleration_weight = 1.0;
+  double max_velocity = 4.0;
+};
+
 struct Predict {
  private:
   static constexpr int MAX_MEMORY = 1 << 22;
@@ -32,7 +48,11 @@ struct Predict {
   double rho_a;
   double car_z, vmax;
   mapping::OccGridMap map;
+#ifdef ELASTIC_TRACKER_ROS2
+  std::deque<Node> data;
+#else
   NodePtr data[MAX_MEMORY];
+#endif
   int stack_top;
 
   inline bool isValid(const Eigen::Vector3d& p, const Eigen::Vector3d& v) const {
@@ -40,6 +60,13 @@ struct Predict {
   }
 
  public:
+#ifdef ELASTIC_TRACKER_ROS2
+  inline explicit Predict(const PredictConfig& config)
+      : dt(config.dt),
+        pre_dur(config.duration),
+        rho_a(config.acceleration_weight),
+        vmax(config.max_velocity) {}
+#else
   inline Predict(ros::NodeHandle& nh) {
     nh.getParam("tracking_dur", pre_dur);
     nh.getParam("tracking_dt", dt);
@@ -49,6 +76,7 @@ struct Predict {
       data[i] = new Node;
     }
   }
+#endif
   inline void setMap(const mapping::OccGridMap& _map) {
     map = _map;
     // map.inflate_last();
@@ -65,13 +93,20 @@ struct Predict {
     auto calH = [&](const NodePtr& ptr) -> double {
       return 0.001 * (ptr->p - end_p).norm();
     };
-    ros::Time t_start = ros::Time::now();
+    const auto t_start = std::chrono::steady_clock::now();
     std::priority_queue<NodePtr, std::vector<NodePtr>, NodeComparator> open_set;
 
     Eigen::Vector3d input(0, 0, 0);
 
     stack_top = 0;
+#ifdef ELASTIC_TRACKER_ROS2
+    data.clear();
+    data.emplace_back();
+    NodePtr curPtr = &data.back();
+    ++stack_top;
+#else
     NodePtr curPtr = data[stack_top++];
+#endif
     curPtr->p = target_p;
     curPtr->v = target_v;
     curPtr->a.setZero();
@@ -92,12 +127,20 @@ struct Predict {
             std::cout << "[prediction] out of memory!" << std::endl;
             return false;
           }
-          double t_cost = (ros::Time::now() - t_start).toSec();
+          double t_cost = std::chrono::duration<double>(
+                              std::chrono::steady_clock::now() - t_start)
+                              .count();
           if (t_cost > max_time) {
             std::cout << "[prediction] too slow!" << std::endl;
             return false;
           }
+#ifdef ELASTIC_TRACKER_ROS2
+          data.emplace_back();
+          NodePtr ptr = &data.back();
+          ++stack_top;
+#else
           NodePtr ptr = data[stack_top++];
+#endif
           ptr->p = p;
           ptr->v = v;
           ptr->a = input;
